@@ -11,14 +11,8 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.eclipse.jetty.websocket</groupId>
-			<artifactId>websocket-jetty-client</artifactId>
-			<version>11.0.2</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-api</artifactId>
-				</exclusion>
-			</exclusions>
+			<artifactId>websocket-client</artifactId>
+			<version>9.4.40.v20210413</version>
 		</dependency>
 		<dependency>
 			<groupId>io.samourai.code.wallet</groupId>

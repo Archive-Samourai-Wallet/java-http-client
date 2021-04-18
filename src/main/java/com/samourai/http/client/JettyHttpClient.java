@@ -21,6 +21,7 @@ import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.util.Fields;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,7 @@ public class JettyHttpClient extends JacksonHttpClient {
   private static HttpClient computeJettyClient(
       Optional<HttpProxy> cliProxyOptional, String userAgent) {
     // we use jetty for proxy SOCKS support
-    HttpClient jettyHttpClient = new HttpClient();
+    HttpClient jettyHttpClient = new HttpClient(new SslContextFactory());
     // jettyHttpClient.setSocketAddressResolver(new MySocketAddressResolver());
 
     // prevent user-agent tracking
