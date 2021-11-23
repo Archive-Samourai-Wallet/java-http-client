@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.ProxyConfiguration;
@@ -21,6 +22,7 @@ import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.util.Fields;
+import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +84,20 @@ public class JettyHttpClient extends JacksonHttpClient {
       httpClient.start();
     } catch (Exception e) {
       log.error("", e);
+    }
+  }
+
+  public void stop() {
+    try {
+      if (httpClient.isRunning()) {
+        httpClient.stop();
+        Executor executor = httpClient.getExecutor();
+        if (executor instanceof LifeCycle) {
+          ((LifeCycle) executor).stop();
+        }
+      }
+    } catch (Exception e) {
+      log.error("Error stopping client", e);
     }
   }
 
