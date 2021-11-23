@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.samourai.code.whirlpool</groupId>
 	<artifactId>java-http-client</artifactId>
-	<version>1.0.2-SNAPSHOT</version>
+	<version>1.0.2</version>
 	<name>java-http-client</name>
 	<properties>
 		<project.scm.id>samourai</project.scm.id>
@@ -78,6 +78,6 @@
 	</repositories>
 	<scm>
 		<connection>scm:git:https://code.samourai.io/wallet/java-http-client.git</connection>
-		<tag>1.0.1</tag>
+		<tag>1.0.2</tag>
 	</scm>
 </project>
