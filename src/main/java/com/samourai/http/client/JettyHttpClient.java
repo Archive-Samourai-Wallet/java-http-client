@@ -158,7 +158,7 @@ public class JettyHttpClient extends JacksonHttpClient {
   }
 
   private void checkResponseStatus(int status, String responseBody) throws HttpException {
-    if (status != HttpStatus.OK_200) {
+    if (!HttpStatus.isSuccess(status)) {
       log.error("Http query failed: status=" + status + ", responseBody=" + responseBody);
       throw new HttpException(new Exception("Http query failed: status=" + status), responseBody);
     }
