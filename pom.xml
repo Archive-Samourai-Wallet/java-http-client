@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.samourai.code.wallet</groupId>
 	<artifactId>java-http-client</artifactId>
-	<version>1.0.6-SNAPSHOT</version>
+	<version>1.0.6</version>
 	<name>java-http-client</name>
 	<properties>
 		<maven.compiler.source>1.8</maven.compiler.source>
@@ -80,6 +80,6 @@
 	</repositories>
 	<scm>
 		<connection>scm:git:https://code.samourai.io/wallet/java-http-client.git</connection>
-		<tag>1.0.5</tag>
+		<tag>1.0.6</tag>
 	</scm>
 </project>
