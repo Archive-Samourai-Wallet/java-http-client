@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>io.samourai.code.wallet</groupId>
 	<artifactId>java-http-client</artifactId>
-	<version>1.0.6</version>
+	<version>1.0.7-SNAPSHOT</version>
 	<name>java-http-client</name>
 	<properties>
 		<maven.compiler.source>1.8</maven.compiler.source>
@@ -19,7 +19,7 @@
 		<dependency>
 			<groupId>io.samourai.code.wallet</groupId>
 			<artifactId>extlibj</artifactId>
-			<version>0.0.28</version>
+			<version>0.0.48</version>
 		</dependency>
 		<!-- test -->
 		<dependency>

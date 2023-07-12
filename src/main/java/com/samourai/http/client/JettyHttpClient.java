@@ -67,9 +67,15 @@ public class JettyHttpClient extends JacksonHttpClient {
   }
 
   @Override
-  public void connect() throws Exception {
-    if (!httpClient.isRunning()) {
-      httpClient.start();
+  public void connect() throws HttpException {
+    try {
+      if (!httpClient.isRunning()) {
+        httpClient.start();
+      }
+    } catch (Exception e) {
+      // wrap connexion failure as HttpException to get it detected
+      // by soroban-java-client's RpcSession.withRpcClient()
+      throw new HttpException(e, "");
     }
   }
 
@@ -171,9 +177,17 @@ public class JettyHttpClient extends JacksonHttpClient {
 
   private Request computeHttpRequest(String url, HttpMethod method, Map<String, String> headers)
       throws Exception {
-    if (log.isDebugEnabled()) {
-      String headersStr = headers != null ? " (" + headers.keySet() + ")" : "";
-      log.debug("+" + method + ": " + url + headersStr);
+    if (url.endsWith("/rpc")) {
+      // log RPC as TRACE
+      if (log.isTraceEnabled()) {
+        String headersStr = headers != null ? " (" + headers.keySet() + ")" : "";
+        log.trace("+" + method + ": " + url + headersStr);
+      }
+    } else {
+      if (log.isDebugEnabled()) {
+        String headersStr = headers != null ? " (" + headers.keySet() + ")" : "";
+        log.debug("+" + method + ": " + url + headersStr);
+      }
     }
     Request req = getJettyHttpClient().newRequest(url);
     req.method(method);
@@ -184,11 +198,5 @@ public class JettyHttpClient extends JacksonHttpClient {
     }
     req.timeout(requestTimeout, TimeUnit.MILLISECONDS);
     return req;
-  }
-
-  @Override
-  protected void onRequestError(Exception e) {
-    super.onRequestError(e);
-    restart();
   }
 }
