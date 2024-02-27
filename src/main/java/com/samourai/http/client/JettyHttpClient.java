@@ -1,6 +1,7 @@
 package com.samourai.http.client;
 
 import com.samourai.wallet.api.backend.beans.HttpException;
+import com.samourai.wallet.httpClient.JacksonHttpClient;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.nio.charset.StandardCharsets;
