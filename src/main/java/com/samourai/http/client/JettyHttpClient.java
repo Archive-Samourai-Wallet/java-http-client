@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 public class JettyHttpClient extends JacksonHttpClient {
   protected static Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-  private static final String CONTENTTYPE_APPLICATION_JSON = "application/json";
+  public static final String CONTENTTYPE_APPLICATION_JSON = "application/json";
 
   private HttpClient httpClient;
   private long requestTimeout;
