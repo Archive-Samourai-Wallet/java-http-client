@@ -114,7 +114,7 @@
 		</repository>
 	</repositories>
 	<scm>
-		<connection>scm:git:https://code.samourai.io/wallet/java-http-client.git</connection>
+		<connection>scm:git:git@code.samourai.io/wallet/java-http-client.git</connection>
 		<tag>2.0.0-beta1</tag>
 	</scm>
 </project>
