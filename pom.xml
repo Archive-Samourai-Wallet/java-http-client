@@ -73,7 +73,6 @@
 				<version>3.0.1</version>
 				<configuration>
 					<tagNameFormat>@{project.version}</tagNameFormat>
-					<developmentVersion>develop-SNAPSHOT</developmentVersion>
 				</configuration>
 			</plugin>
 			<plugin>
