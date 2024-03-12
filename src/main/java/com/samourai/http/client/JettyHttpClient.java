@@ -1,7 +1,9 @@
 package com.samourai.http.client;
 
 import com.samourai.wallet.api.backend.beans.HttpException;
+import com.samourai.wallet.httpClient.HttpNetworkException;
 import com.samourai.wallet.httpClient.HttpProxy;
+import com.samourai.wallet.httpClient.HttpResponseException;
 import com.samourai.wallet.httpClient.JacksonHttpClient;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
@@ -11,6 +13,7 @@ import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.ProxyConfiguration;
 import org.eclipse.jetty.client.Socks4Proxy;
@@ -38,10 +41,13 @@ public class JettyHttpClient extends JacksonHttpClient {
   private long requestTimeout;
 
   public JettyHttpClient(
-      long requestTimeout, Optional<HttpProxy> httpProxyOptional, String userAgent) {
-    super();
-    this.requestTimeout = requestTimeout;
+      long requestTimeout,
+      Optional<HttpProxy> httpProxyOptional,
+      String userAgent,
+      Consumer<Exception> onNetworkError) {
+    super(onNetworkError);
     this.httpClient = computeJettyClient(httpProxyOptional, userAgent);
+    this.requestTimeout = requestTimeout;
   }
 
   private static HttpClient computeJettyClient(
@@ -93,7 +99,7 @@ public class JettyHttpClient extends JacksonHttpClient {
     } catch (Exception e) {
       // wrap connexion failure as HttpException to get it detected
       // by soroban-java-client's RpcSession.withRpcClient()
-      throw new HttpException(e);
+      throw new HttpNetworkException(e);
     }
   }
 
@@ -127,14 +133,14 @@ public class JettyHttpClient extends JacksonHttpClient {
 
   @Override
   protected String requestJsonGet(String urlStr, Map<String, String> headers, boolean async)
-      throws Exception {
+      throws HttpException {
     Request req = computeHttpRequest(urlStr, HttpMethod.GET, headers);
     return makeRequest(req, async);
   }
 
   @Override
   protected String requestJsonPost(String urlStr, Map<String, String> headers, String jsonBody)
-      throws Exception {
+      throws HttpException {
     Request req = computeHttpRequest(urlStr, HttpMethod.POST, headers);
     req.content(
         new StringContentProvider(CONTENTTYPE_APPLICATION_JSON, jsonBody, StandardCharsets.UTF_8));
@@ -144,7 +150,7 @@ public class JettyHttpClient extends JacksonHttpClient {
   @Override
   protected String requestStringPost(
       String urlStr, Map<String, String> headers, String contentType, String content)
-      throws Exception {
+      throws HttpException {
     log.debug("POST " + urlStr);
     Request req = computeHttpRequest(urlStr, HttpMethod.POST, headers);
     req.content(new StringContentProvider(content), contentType);
@@ -153,7 +159,7 @@ public class JettyHttpClient extends JacksonHttpClient {
 
   @Override
   protected String requestJsonPostUrlEncoded(
-      String urlStr, Map<String, String> headers, Map<String, String> body) throws Exception {
+      String urlStr, Map<String, String> headers, Map<String, String> body) throws HttpException {
     Request req = computeHttpRequest(urlStr, HttpMethod.POST, headers);
     req.content(new FormContentProvider(computeBodyFields(body)));
     return makeRequest(req, false);
@@ -167,14 +173,19 @@ public class JettyHttpClient extends JacksonHttpClient {
     return fields;
   }
 
-  protected String makeRequest(Request req, boolean async) throws Exception {
+  protected String makeRequest(Request req, boolean async) throws HttpException {
     String responseContent;
     if (async) {
       InputStreamResponseListener listener = new InputStreamResponseListener();
       req.send(listener);
 
       // Call to the listener's get() blocks until the headers arrived
-      Response response = listener.get(requestTimeout, TimeUnit.MILLISECONDS);
+      Response response;
+      try {
+        response = listener.get(requestTimeout, TimeUnit.MILLISECONDS);
+      } catch (Exception e) {
+        throw new HttpNetworkException(e);
+      }
 
       // Read content
       InputStream is = listener.getInputStream();
@@ -184,28 +195,32 @@ public class JettyHttpClient extends JacksonHttpClient {
       // check status
       checkResponseStatus(response.getStatus(), responseContent);
     } else {
-      ContentResponse response = req.send();
+      ContentResponse response;
+      try {
+        response = req.send();
+      } catch (Exception e) {
+        throw new HttpNetworkException(e);
+      }
       checkResponseStatus(response.getStatus(), response.getContentAsString());
       responseContent = response.getContentAsString();
     }
     return responseContent;
   }
 
-  private void checkResponseStatus(int status, String responseBody) throws HttpException {
+  private void checkResponseStatus(int status, String responseBody) throws HttpResponseException {
     if (!HttpStatus.isSuccess(status)) {
       log.error("Http query failed: status=" + status + ", responseBody=" + responseBody);
-      throw new HttpException(
-          new Exception("Http query failed: status=" + status), responseBody, status);
+      throw new HttpResponseException(responseBody, status);
     }
   }
 
-  public HttpClient getJettyHttpClient() throws Exception {
+  public HttpClient getJettyHttpClient() throws HttpException {
     connect();
     return httpClient;
   }
 
   private Request computeHttpRequest(String url, HttpMethod method, Map<String, String> headers)
-      throws Exception {
+      throws HttpException {
     if (url.endsWith("/rpc")) {
       // log RPC as TRACE
       if (log.isTraceEnabled()) {
