@@ -23,8 +23,6 @@ import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.util.FormContentProvider;
 import org.eclipse.jetty.client.util.InputStreamResponseListener;
 import org.eclipse.jetty.client.util.StringContentProvider;
-import org.eclipse.jetty.http.HttpField;
-import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.util.Fields;
@@ -43,21 +41,19 @@ public class JettyHttpClient extends JacksonHttpClient {
   public JettyHttpClient(
       long requestTimeout,
       Optional<HttpProxy> httpProxyOptional,
-      String userAgent,
       Consumer<Exception> onNetworkError) {
     super(onNetworkError);
-    this.httpClient = computeJettyClient(httpProxyOptional, userAgent);
+    this.httpClient = computeJettyClient(httpProxyOptional);
     this.requestTimeout = requestTimeout;
   }
 
-  private static HttpClient computeJettyClient(
-      Optional<HttpProxy> httpProxyOptional, String userAgent) {
+  private static HttpClient computeJettyClient(Optional<HttpProxy> httpProxyOptional) {
     // we use jetty for proxy SOCKS support
     HttpClient jettyHttpClient = new HttpClient(new SslContextFactory());
     // jettyHttpClient.setSocketAddressResolver(new MySocketAddressResolver());
 
     // prevent user-agent tracking
-    jettyHttpClient.setUserAgentField(new HttpField(HttpHeader.USER_AGENT, userAgent));
+    jettyHttpClient.setUserAgentField(null);
 
     // proxy
     if (httpProxyOptional != null && httpProxyOptional.isPresent()) {

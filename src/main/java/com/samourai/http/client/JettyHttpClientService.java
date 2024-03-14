@@ -12,30 +12,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JettyHttpClientService implements IHttpClientService {
-  public static final String DEFAULT_USER_AGENT = "whirlpool-client";
   public static final long DEFAULT_TIMEOUT = 30000;
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   private IHttpProxySupplier httpProxySupplier;
   private long requestTimeout;
-  private String userAgent;
   private Map<HttpUsage, JettyHttpClient> httpClients;
 
-  public JettyHttpClientService(
-      long requestTimeout, String userAgent, IHttpProxySupplier httpProxySupplier) {
+  public JettyHttpClientService(long requestTimeout, IHttpProxySupplier httpProxySupplier) {
     this.httpProxySupplier =
         httpProxySupplier != null ? httpProxySupplier : computeHttpProxySupplierDefault();
     this.requestTimeout = requestTimeout;
-    this.userAgent = userAgent;
     this.httpClients = new ConcurrentHashMap<>();
   }
 
-  public JettyHttpClientService(long requestTimeout, String userAgent) {
-    this(requestTimeout, userAgent, null);
-  }
-
   public JettyHttpClientService(long requestTimeout) {
-    this(requestTimeout, DEFAULT_USER_AGENT);
+    this(requestTimeout, null);
   }
 
   public JettyHttpClientService() {
@@ -71,7 +63,7 @@ public class JettyHttpClientService implements IHttpClientService {
     // use Tor proxy if any
     Optional<HttpProxy> httpProxy = httpProxySupplier.getHttpProxy(httpUsage);
     Consumer<Exception> onNetworkError = e -> httpProxySupplier.changeIdentity();
-    return new JettyHttpClient(requestTimeout, httpProxy, userAgent, onNetworkError);
+    return new JettyHttpClient(requestTimeout, httpProxy, onNetworkError);
   }
 
   @Override

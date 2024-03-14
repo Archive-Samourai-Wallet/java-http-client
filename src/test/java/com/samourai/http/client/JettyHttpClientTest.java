@@ -17,7 +17,7 @@ public class JettyHttpClientTest {
   @Test
   public void requestJsonGet() throws Exception {
     String response = httpClient.requestJsonGet("https://eu.httpbin.org/get", null, false);
-    Assertions.assertTrue(response.contains("User-Agent"));
+    Assertions.assertTrue(response.contains("get"));
   }
 
   @Test
