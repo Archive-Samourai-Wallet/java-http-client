@@ -7,7 +7,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,11 +58,8 @@ public class JettyHttpClientService implements IHttpClientService {
     return httpClient;
   }
 
-  private JettyHttpClient computeHttpClient(HttpUsage httpUsage) {
-    // use Tor proxy if any
-    Optional<HttpProxy> httpProxy = httpProxySupplier.getHttpProxy(httpUsage);
-    Consumer<Exception> onNetworkError = e -> httpProxySupplier.changeIdentity();
-    return new JettyHttpClient(requestTimeout, httpProxy, onNetworkError);
+  protected JettyHttpClient computeHttpClient(HttpUsage httpUsage) {
+    return new JettyHttpClient(requestTimeout, httpProxySupplier, httpUsage);
   }
 
   @Override
