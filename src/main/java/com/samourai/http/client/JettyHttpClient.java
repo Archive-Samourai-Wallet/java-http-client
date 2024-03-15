@@ -44,6 +44,10 @@ public class JettyHttpClient extends JacksonHttpClient {
     this.requestTimeout = requestTimeout;
   }
 
+  public JettyHttpClient(long requestTimeout, HttpUsage httpUsage) {
+    this(requestTimeout, JettyHttpClientService.computeHttpProxySupplierDefault(), httpUsage);
+  }
+
   protected static HttpClient computeJettyClient(
       IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
     // we use jetty for proxy SOCKS support
