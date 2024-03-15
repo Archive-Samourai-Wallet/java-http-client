@@ -1,5 +1,6 @@
 package com.samourai.http.client;
 
+import com.google.common.util.concurrent.RateLimiter;
 import com.samourai.wallet.api.backend.beans.HttpException;
 import com.samourai.wallet.httpClient.*;
 import java.io.InputStream;
@@ -10,6 +11,7 @@ import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.ProxyConfiguration;
 import org.eclipse.jetty.client.Socks4Proxy;
@@ -34,18 +36,36 @@ public class JettyHttpClient extends JacksonHttpClient {
   public static final String CONTENTTYPE_APPLICATION_JSON = "application/json";
   private static final String NAME = "Whirlpool-HttpClient";
 
+  // limit changing Tor identity on network error every 4 minutes
+  private static final double RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR = 1.0 / 240;
+
   private HttpClient httpClient;
   private long requestTimeout;
 
   public JettyHttpClient(
       long requestTimeout, IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
-    super(e -> httpProxySupplier.changeIdentity());
+    super(computeOnNetworkError(httpProxySupplier));
     this.httpClient = computeJettyClient(httpProxySupplier, httpUsage);
     this.requestTimeout = requestTimeout;
   }
 
   public JettyHttpClient(long requestTimeout, HttpUsage httpUsage) {
     this(requestTimeout, JettyHttpClientService.computeHttpProxySupplierDefault(), httpUsage);
+  }
+
+  protected static Consumer<Exception> computeOnNetworkError(IHttpProxySupplier httpProxySupplier) {
+    //
+    RateLimiter rateLimiter = RateLimiter.create(RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR);
+    return e -> {
+      if (!rateLimiter.tryAcquire()) {
+        if (log.isDebugEnabled()) {
+          log.debug("onNetworkError: not changing Tor identity (too many recent attempts)");
+        }
+        return;
+      }
+      // change Tor identity on network error
+      httpProxySupplier.changeIdentity();
+    };
   }
 
   protected static HttpClient computeJettyClient(
