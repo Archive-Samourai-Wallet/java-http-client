@@ -16,7 +16,7 @@ public class JettyHttpClientService implements IHttpClientService {
 
   private IHttpProxySupplier httpProxySupplier;
   private long requestTimeout;
-  private Map<HttpUsage, JettyHttpClient> httpClients;
+  protected Map<HttpUsage, JettyHttpClient> httpClients; // used by Sparrow
 
   public JettyHttpClientService(long requestTimeout, IHttpProxySupplier httpProxySupplier) {
     this.httpProxySupplier =
@@ -63,10 +63,11 @@ public class JettyHttpClientService implements IHttpClientService {
   }
 
   @Override
-  public void stop() {
+  public synchronized void stop() {
     for (JettyHttpClient httpClient : httpClients.values()) {
       httpClient.stop();
     }
+    httpClients.clear();
   }
 
   @Override
