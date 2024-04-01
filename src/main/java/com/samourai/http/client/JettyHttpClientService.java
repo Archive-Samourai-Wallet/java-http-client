@@ -1,5 +1,7 @@
 package com.samourai.http.client;
 
+import com.google.common.util.concurrent.RateLimiter;
+import com.samourai.http.client.socks5.Socks5Proxy;
 import com.samourai.wallet.httpClient.HttpProxy;
 import com.samourai.wallet.httpClient.HttpUsage;
 import com.samourai.wallet.httpClient.IHttpClientService;
@@ -7,12 +9,24 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.ProxyConfiguration;
+import org.eclipse.jetty.client.Socks4Proxy;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
+import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JettyHttpClientService implements IHttpClientService {
-  public static final long DEFAULT_TIMEOUT = 30000;
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+  public static final long DEFAULT_TIMEOUT = 30000;
+  private static final String NAME = "Whirlpool-HttpClient";
+
+  // limit changing Tor identity on network error every 4 minutes
+  private static final double RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR = 1.0 / 240;
 
   private IHttpProxySupplier httpProxySupplier;
   private long requestTimeout;
@@ -59,7 +73,85 @@ public class JettyHttpClientService implements IHttpClientService {
   }
 
   protected JettyHttpClient computeHttpClient(HttpUsage httpUsage) {
-    return new JettyHttpClient(requestTimeout, httpProxySupplier, httpUsage);
+    Consumer<Exception> onNetworkError = computeOnNetworkError();
+    HttpClient httpClient = computeJettyClient(httpUsage);
+    return new JettyHttpClient(onNetworkError, httpClient, requestTimeout, httpUsage);
+  }
+
+  protected HttpClient computeJettyClient(HttpUsage httpUsage) {
+    // we use jetty for proxy SOCKS support
+    HttpClient jettyHttpClient = new HttpClient(new SslContextFactory());
+    // jettyHttpClient.setSocketAddressResolver(new MySocketAddressResolver());
+
+    // prevent user-agent tracking
+    jettyHttpClient.setUserAgentField(null);
+
+    // configure
+    configureProxy(jettyHttpClient, httpUsage);
+    configureThread(jettyHttpClient, httpUsage);
+
+    return jettyHttpClient;
+  }
+
+  protected Consumer<Exception> computeOnNetworkError() {
+    //
+    RateLimiter rateLimiter = RateLimiter.create(RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR);
+    return e -> {
+      if (!rateLimiter.tryAcquire()) {
+        if (log.isDebugEnabled()) {
+          log.debug("onNetworkError: not changing Tor identity (too many recent attempts)");
+        }
+        return;
+      }
+      // change Tor identity on network error
+      httpProxySupplier.changeIdentity();
+    };
+  }
+
+  protected void configureProxy(HttpClient jettyHttpClient, HttpUsage httpUsage) {
+    Optional<HttpProxy> httpProxyOptional = httpProxySupplier.getHttpProxy(httpUsage);
+    if (httpProxyOptional != null && httpProxyOptional.isPresent()) {
+      HttpProxy httpProxy = httpProxyOptional.get();
+      if (log.isDebugEnabled()) {
+        log.debug("+httpClient: proxy=" + httpProxy);
+      }
+      ProxyConfiguration.Proxy jettyProxy = computeJettyProxy(httpProxy);
+      jettyHttpClient.getProxyConfiguration().getProxies().add(jettyProxy);
+    } else {
+      if (log.isDebugEnabled()) {
+        log.debug("+httpClient: no proxy");
+      }
+    }
+  }
+
+  protected void configureThread(HttpClient jettyHttpClient, HttpUsage httpUsage) {
+    String name = NAME + "-" + httpUsage.toString();
+
+    // daemon threads for Sparrow
+    QueuedThreadPool threadPool = new QueuedThreadPool();
+    threadPool.setName(name);
+    threadPool.setDaemon(true);
+    jettyHttpClient.setExecutor(threadPool);
+    jettyHttpClient.setScheduler(new ScheduledExecutorScheduler(name + "-scheduler", true));
+  }
+
+  protected ProxyConfiguration.Proxy computeJettyProxy(HttpProxy httpProxy) {
+    ProxyConfiguration.Proxy jettyProxy = null;
+    switch (httpProxy.getProtocol()) {
+      case SOCKS:
+        jettyProxy = new Socks4Proxy(httpProxy.getHost(), httpProxy.getPort());
+        break;
+
+      case SOCKS5:
+        jettyProxy = new Socks5Proxy(httpProxy.getHost(), httpProxy.getPort());
+        break;
+
+      case HTTP:
+        jettyProxy =
+            new org.eclipse.jetty.client.HttpProxy(httpProxy.getHost(), httpProxy.getPort());
+        break;
+    }
+    return jettyProxy;
   }
 
   @Override

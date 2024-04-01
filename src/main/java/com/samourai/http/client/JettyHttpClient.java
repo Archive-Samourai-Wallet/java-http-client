@@ -1,20 +1,19 @@
 package com.samourai.http.client;
 
-import com.google.common.util.concurrent.RateLimiter;
 import com.samourai.wallet.api.backend.beans.HttpException;
-import com.samourai.wallet.httpClient.*;
+import com.samourai.wallet.httpClient.HttpNetworkException;
+import com.samourai.wallet.httpClient.HttpResponseException;
+import com.samourai.wallet.httpClient.HttpUsage;
+import com.samourai.wallet.httpClient.JacksonHttpClient;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.ProxyConfiguration;
-import org.eclipse.jetty.client.Socks4Proxy;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
@@ -25,107 +24,26 @@ import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.util.Fields;
 import org.eclipse.jetty.util.component.LifeCycle;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.eclipse.jetty.util.thread.ScheduledExecutorScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JettyHttpClient extends JacksonHttpClient {
   protected static Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
   public static final String CONTENTTYPE_APPLICATION_JSON = "application/json";
-  private static final String NAME = "Whirlpool-HttpClient";
-
-  // limit changing Tor identity on network error every 4 minutes
-  private static final double RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR = 1.0 / 240;
 
   private HttpClient httpClient;
   private long requestTimeout;
+  private HttpUsage httpUsage;
 
   public JettyHttpClient(
-      long requestTimeout, IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
-    super(computeOnNetworkError(httpProxySupplier));
-    this.httpClient = computeJettyClient(httpProxySupplier, httpUsage);
+      Consumer<Exception> onNetworkError,
+      HttpClient httpClient,
+      long requestTimeout,
+      HttpUsage httpUsage) {
+    super(onNetworkError);
+    this.httpClient = httpClient;
     this.requestTimeout = requestTimeout;
-  }
-
-  public JettyHttpClient(long requestTimeout, HttpUsage httpUsage) {
-    this(requestTimeout, JettyHttpClientService.computeHttpProxySupplierDefault(), httpUsage);
-  }
-
-  protected static Consumer<Exception> computeOnNetworkError(IHttpProxySupplier httpProxySupplier) {
-    //
-    RateLimiter rateLimiter = RateLimiter.create(RATE_CHANGE_IDENTITY_ON_NETWORK_ERROR);
-    return e -> {
-      if (!rateLimiter.tryAcquire()) {
-        if (log.isDebugEnabled()) {
-          log.debug("onNetworkError: not changing Tor identity (too many recent attempts)");
-        }
-        return;
-      }
-      // change Tor identity on network error
-      httpProxySupplier.changeIdentity();
-    };
-  }
-
-  protected static HttpClient computeJettyClient(
-      IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
-    // we use jetty for proxy SOCKS support
-    HttpClient jettyHttpClient = new HttpClient(new SslContextFactory());
-    // jettyHttpClient.setSocketAddressResolver(new MySocketAddressResolver());
-
-    // prevent user-agent tracking
-    jettyHttpClient.setUserAgentField(null);
-
-    // configure
-    configureProxy(jettyHttpClient, httpProxySupplier, httpUsage);
-    configureThread(jettyHttpClient, httpProxySupplier, httpUsage);
-
-    return jettyHttpClient;
-  }
-
-  protected static void configureProxy(
-      HttpClient jettyHttpClient, IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
-    Optional<HttpProxy> httpProxyOptional = httpProxySupplier.getHttpProxy(httpUsage);
-    if (httpProxyOptional != null && httpProxyOptional.isPresent()) {
-      HttpProxy httpProxy = httpProxyOptional.get();
-      if (log.isDebugEnabled()) {
-        log.debug("+httpClient: proxy=" + httpProxy);
-      }
-      ProxyConfiguration.Proxy jettyProxy = computeJettyProxy(httpProxy);
-      jettyHttpClient.getProxyConfiguration().getProxies().add(jettyProxy);
-    } else {
-      if (log.isDebugEnabled()) {
-        log.debug("+httpClient: no proxy");
-      }
-    }
-  }
-
-  protected static void configureThread(
-      HttpClient jettyHttpClient, IHttpProxySupplier httpProxySupplier, HttpUsage httpUsage) {
-    String name = NAME + "-" + httpUsage.toString();
-
-    // daemon threads for Sparrow
-    QueuedThreadPool threadPool = new QueuedThreadPool();
-    threadPool.setName(name);
-    threadPool.setDaemon(true);
-    jettyHttpClient.setExecutor(threadPool);
-    jettyHttpClient.setScheduler(new ScheduledExecutorScheduler(name + "-scheduler", true));
-  }
-
-  private static ProxyConfiguration.Proxy computeJettyProxy(HttpProxy httpProxy) {
-    ProxyConfiguration.Proxy jettyProxy = null;
-    switch (httpProxy.getProtocol()) {
-      case SOCKS:
-        jettyProxy = new Socks4Proxy(httpProxy.getHost(), httpProxy.getPort());
-        break;
-
-      case HTTP:
-        jettyProxy =
-            new org.eclipse.jetty.client.HttpProxy(httpProxy.getHost(), httpProxy.getPort());
-        break;
-    }
-    return jettyProxy;
+    this.httpUsage = httpUsage;
   }
 
   @Override
@@ -135,8 +53,6 @@ public class JettyHttpClient extends JacksonHttpClient {
         httpClient.start();
       }
     } catch (Exception e) {
-      // wrap connexion failure as HttpException to get it detected
-      // by soroban-java-client's RpcSession.withRpcClient()
       throw new HttpNetworkException(e);
     }
   }
@@ -280,5 +196,9 @@ public class JettyHttpClient extends JacksonHttpClient {
     }
     req.timeout(requestTimeout, TimeUnit.MILLISECONDS);
     return req;
+  }
+
+  public HttpUsage getHttpUsage() {
+    return httpUsage;
   }
 }

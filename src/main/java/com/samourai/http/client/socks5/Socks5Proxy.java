@@ -11,7 +11,7 @@
 // ========================================================================
 //
 
-package org.eclipse.jetty.client;
+package com.samourai.http.client.socks5;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -23,14 +23,20 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.HttpClientTransport;
+import org.eclipse.jetty.client.HttpDestination;
+import org.eclipse.jetty.client.Origin;
 import org.eclipse.jetty.client.ProxyConfiguration.Proxy;
 import org.eclipse.jetty.io.AbstractConnection;
 import org.eclipse.jetty.io.ClientConnectionFactory;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.EndPoint;
+import org.eclipse.jetty.io.ssl.SslClientConnectionFactory;
 import org.eclipse.jetty.util.BufferUtil;
 import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.util.Promise;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -375,7 +381,7 @@ public class Socks5Proxy extends Proxy {
         ClientConnectionFactory connectionFactory = this.connectionFactory;
         if (destination.isSecure())
           connectionFactory =
-              destination.getHttpClient().newSslClientConnectionFactory(null, connectionFactory);
+              newSslClientConnectionFactory(destination.getHttpClient(), null, connectionFactory);
         Connection newConnection = connectionFactory.newConnection(getEndPoint(), context);
         getEndPoint().upgrade(newConnection);
         if (LOG.isDebugEnabled())
@@ -389,5 +395,19 @@ public class Socks5Proxy extends Proxy {
       HANDSHAKE,
       CONNECT
     }
+  }
+
+  protected static ClientConnectionFactory newSslClientConnectionFactory(
+      HttpClient httpClient,
+      SslContextFactory sslContextFactory,
+      ClientConnectionFactory connectionFactory) {
+    if (sslContextFactory == null) {
+      sslContextFactory = httpClient.getSslContextFactory();
+    }
+    return new SslClientConnectionFactory(
+        sslContextFactory,
+        httpClient.getByteBufferPool(),
+        httpClient.getExecutor(),
+        connectionFactory);
   }
 }

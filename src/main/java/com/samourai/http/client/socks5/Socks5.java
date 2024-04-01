@@ -13,7 +13,7 @@
 // ========================================================================
 //
 
-package org.eclipse.jetty.client;
+package com.samourai.http.client.socks5;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
