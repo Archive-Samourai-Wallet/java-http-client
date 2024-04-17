@@ -125,7 +125,7 @@ public class JettyHttpClientService implements IHttpClientService {
   }
 
   protected void configureThread(HttpClient jettyHttpClient, HttpUsage httpUsage) {
-    String name = NAME + "-" + httpUsage.toString();
+    String name = NAME + "-" + httpUsage.getName();
 
     // daemon threads for Sparrow
     QueuedThreadPool threadPool = new QueuedThreadPool();
