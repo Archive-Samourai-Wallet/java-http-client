@@ -64,7 +64,7 @@ public class JettyHttpClientService implements IHttpClientService {
     JettyHttpClient httpClient = httpClients.get(httpUsage);
     if (httpClient == null) {
       if (log.isDebugEnabled()) {
-        log.debug("+httpClient[" + httpUsage + "]");
+        log.debug("+httpClient[" + httpUsage.getName() + "]");
       }
       httpClient = computeHttpClient(httpUsage);
       httpClients.put(httpUsage, httpClient);
